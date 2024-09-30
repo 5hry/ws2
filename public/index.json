@@ -1,0 +1,92 @@
+[
+{
+	"uri": "//localhost:1313/",
+	"title": "Web application using Terraform",
+	"tags": [],
+	"description": "",
+	"content": "High availability web application using Terraform Overall In this lab, you\u0026rsquo;ll learn the basics of Terraform and practice by implementing resources for Web Application. Perform creating some AWS services to host an web application.\nContent Introduction Preparation Mannual Operation Implement resources by using Terraform Testing Website Clean up resources "
+},
+{
+	"uri": "//localhost:1313/3-vpc/3.1-vpc-main/",
+	"title": "Connect to Public Instance",
+	"tags": [],
+	"description": "",
+	"content": "\nGo to EC2 service management console. Click on Public Linux Instance. Click Actions. Click Security. Click Modify IAM role. At the Modify IAM role page. Click to select SSM-Role. Click Save. You will need to wait about 10 minutes before performing the next step. This time our EC2 instance will automatically register with the Session Manager.\nGo to the AWS Systems Manager service management console Drag the left menu slider down. Click Session Manager. Click Start Session. Then select Public Linux Instance and click Start session to access the instance. Terminal will appear on the browser. Testing with the command sudo tcpdump -nn port 22 and sudo tcpdump we will see no SSH traffic but only HTTPS traffic. Above, we have created a connection to the public instance without opening SSH port 22, for better security, avoiding any attack to the SSH port.\nOne disadvantage of the above method is that we have to open the Security Group outbound at port 443 to the internet. Since it\u0026rsquo;s a public instance, it probably won\u0026rsquo;t be a problem, but if you want extra security, you can block port 443 to the internet and still use the Session Manager. We will go through this in the private instance section below.\nYou can click terminate to end the currently connected session before proceeding to the next step.\n"
+},
+{
+	"uri": "//localhost:1313/1-introduction/1.1-iac/",
+	"title": "Infrastructure as Code",
+	"tags": [],
+	"description": "",
+	"content": "Typically, most beginners with Cloud in general, and AWS in particular, interact with AWS services through the console. They log in to the console and work with the services they need. This process is quite straightforward and convenient if we are only creating a few small applications without the need to reuse those configurations.\nSimply put, we can understand by its name that we will write code to describe and manage our infrastructure. Infrastructure as Code (IaC) allows us to interact with those services through lines of code, rather than manually interacting with the console.\nAdvantages:\nCan be reused to create other applications with similar infrastructure, reducing the time needed to create infra. Provides a clear structure and tracks the state of the created infrastructure. Imagine a large system where you’ve created the infra, but the next day you can’t remember whether you’ve done it or not. Can back up the infrastructure in case of system failures. "
+},
+{
+	"uri": "//localhost:1313/1-introduction/",
+	"title": "Introduction",
+	"tags": [],
+	"description": "",
+	"content": "Deploy high availability web application using Terraform Content What is IaC(Infrastructure as Code)? Terraform basics "
+},
+{
+	"uri": "//localhost:1313/3-vpc/3.2-vpc-output/",
+	"title": "Connect to Private instance",
+	"tags": [],
+	"description": "",
+	"content": "For Windows instance located in private subnet, there is no public IP, no internet gateway so it cannot go out internet.\nWith this type of instance, the traditional way is to use Bastion host technique which is expensive and laborious, but here we will use Session Manager with this type.\nBasically, the private instance still has to open the TCP 443 port to System Manager, but we don\u0026rsquo;t want to allow connection go out to the internet, but only in its VPC, to enhance our security posture.\nTo do that, we have to include the System Manager endpoint in the VPC, that is, using the VPC interface endpoint:\nVPC interface endpoint is attached to the subnet, so this method can be done not only with private subnet but also with public subnet, meaning that with public subnet, you can completely prohibit TCP 443 go out to the internet.\nContent: Enable DNS hostnames Create VPC Endpoint Connect Private Instance "
+},
+{
+	"uri": "//localhost:1313/2-prerequiste/",
+	"title": "Preparation ",
+	"tags": [],
+	"description": "",
+	"content": "\rYou need to create 1 Linux instance on the public subnet and 1 Window instance on the private subnet to perform this lab.\nTo learn how to create EC2 instances and VPCs with public/private subnets, you can refer to the lab:\nAbout Amazon EC2 Works with Amazon VPC In order to use System Manager to manage our window instances in particular and our instances in general on AWS, we need to give permission to our instances to be able to work with System Manager. In this preparation, we will also proceed to create an IAM Role to grant permissions to instances that can work with System Manager.\nContent Prepare VPC and EC2 Create IAM Role "
+},
+{
+	"uri": "//localhost:1313/1-introduction/1.2-terraform/",
+	"title": "What is Terraform?",
+	"tags": [],
+	"description": "",
+	"content": "Currently, Terraform is probably the most common IaC (Infrastructure as Code) tool at the moment. It is an open-source tool by HashiCorp specifically used to create infrastructure through the code we write, instead of manually creating it in the console, which can be time-consuming.\nOther tools like Ansible can also achieve similar results, but Ansible is primarily a Configuration Management tool and not focused on IaC like Terraform. Therefore, using Ansible might require running unnecessary processes.\nAdvantages:\nOpen-source and free. Large community. Declarative programming. A major advantage: It can provide infrastructure for multiple cloud providers (AWS, GCP, Azure) in a single configuration file. Example of using Terraform: Before implementing Terraform, we need to install the AWS CLI and Terraform CLI:\nInstall AWS CLI. AWS CLI Configuration Install Terraform CLI. Terraform CLI Configuration To deploy infrastructure using Terraform, we need to know the steps and some common commands when using Terraform:\nFirst, we need to create a workspace, which can be a directory on the local machine. Next, write code to declare the infrastructure we want to deploy. As shown in the image below, we first need to declare the provider (in this case, \u0026ldquo;aws\u0026rdquo;), and create an EC2 instance of type \u0026ldquo;t2.micro\u0026rdquo; named \u0026ldquo;My EC2 Instance\u0026rdquo; in the Singapore region. To initialize the workspace, run the command terraform init to download the AWS provider to the current workspace so Terraform can use these providers to call APIs and create resources for us. After running the command, the .terraform directory will appear in the workspace, containing the code of the declared providers.\nHere, we can run the command terraform fmt to format the Terraform files.\nAdditionally, to check the validity of the code we wrote, we can use the command terraform validate.\nAfter initializing the workspace with terraform init, run the command terraform plan to see which resources will be created/modified/deleted. ⇒ Create 1 resource, 0 modify, 0 delete. After reviewing the plan, run the command terraform apply to execute those actions.\nAvoid manually modifying or deleting resources created by Terraform, as it will disrupt the state management of the resources controlled by Terraform.\nIf, after applying and creating the resource, there are errors and you want to fix them, you can edit the code and run terraform apply again. Terraform will detect the changes and update the resource without needing to destroy it and start over.\nAfter running terraform plan, if you modify the code, apply will run the new code. If you want to apply the code as it was when terraform plan was executed, use “-out=”. Then run terraform apply .\nAfter running terraform apply, the EC2 instance named \u0026ldquo;My EC2 Instance\u0026rdquo; of type \u0026ldquo;t2.micro\u0026rdquo; has been created. Finally, if you want to delete the resource, simply run the command “terraform destroy”. Terraform will delete all the resources that were deployed from the start.\n⇒ In summary, Terraform can be understood as a tool that manages resource state through the terraform.tfstate file created when running the “terraform apply” command. It also helps perform CRUD actions on the infrastructure resources we want.\n"
+},
+{
+	"uri": "//localhost:1313/3-vpc/",
+	"title": "Connect to EC2 servers",
+	"tags": [],
+	"description": "",
+	"content": "In this step, we will connect to our EC2 servers, located in both the public and private subnets.\nContent 3.1. Connect to EC2 Public Server 3.2. Cconnect to EC2 Private Server\n"
+},
+{
+	"uri": "//localhost:1313/4-autoscalinggroup/",
+	"title": "Manage session logs",
+	"tags": [],
+	"description": "",
+	"content": "With Session Manager, we can view the history of connections to instances through Session history. However, we have not seen the details of the commands used in a session.\nIn this section, we will proceed to create an S3 bucket and configure the session logs feature to see the details of the commands used in the session.\nContent: Update IAM Role Create S3 Bucket Create S3 Gateway endpoint Configure Session logs "
+},
+{
+	"uri": "//localhost:1313/5-loadblancer/",
+	"title": "Port Forwarding",
+	"tags": [],
+	"description": "",
+	"content": "\rPort Forwarding is a useful way to redirect network traffic from one IP address - Port to another IP address - Port. With Port Forwarding we can access an EC2 instance located in the private subnet from our workstation.\nWe will configure Port Forwarding for the RDP connection between our machine and Private Windows Instance located in the private subnet we created for this exercise.\nCreate IAM user with permission to connect SSM Go to IAM service management console Click Users , then click Add users. At the Add user page. In the User name field, enter Portfwd. Click on Access key - Programmatic access. Click Next: Permissions. Click Attach existing policies directly.\nIn the search box, enter ssm. Click on AmazonSSMFullAccess. Click Next: Tags, click Next: Reviews. Click Create user. Save Access key ID and Secret access key information to perform AWS CLI configuration.\nInstall and Configure AWS CLI and Session Manager Plugin To perform this hands-on, make sure your workstation has AWS CLI and Session Manager Plugin installed -manager-working-with-install-plugin.html)\nMore hands-on tutorials on installing and configuring the AWS CLI can be found here.\nWith Windows, when extracting the Session Manager Plugin installation folder, run the install.bat file with Administrator permission to perform the installation.\nImplement Portforwarding Run the command below in Command Prompt on your machine to configure Port Forwarding. aws ssm start-session --target (your ID windows instance) --document-name AWS-StartPortForwardingSession --parameters portNumber=\u0026#34;3389\u0026#34;,localPortNumber=\u0026#34;9999\u0026#34; --region (your region) Windows Private Instance Instance ID information can be found when you view the EC2 Windows Private Instance server details.\nExample command: C:\\Windows\\system32\u0026gt;aws ssm start-session --target i-06343d7377486760c --document-name AWS-StartPortForwardingSession --parameters portNumber=\u0026#34;3389\u0026#34;,localPortNumber=\u0026#34;9999\u0026#34; --region ap-southeast-1 If your command gives an error like below: SessionManagerPlugin is not found. Please refer to SessionManager Documentation here: http://docs.aws.amazon.com/console/systems-manager/session-manager-plugin-not-found\nProve that you have not successfully installed the Session Manager Plugin. You may need to relaunch Command Prompt after installing Session Manager Plugin.\nConnect to the Private Windows Instance you created using the Remote Desktop tool on your workstation. In the Computer section: enter localhost:9999. Return to the administration interface of the System Manager - Session Manager service. Click tab Session history. We will see session logs with Document name AWS-StartPortForwardingSession. Congratulations on completing the lab on how to use Session Manager to connect and store session logs in S3 bucket. Remember to perform resource cleanup to avoid unintended costs.\n"
+},
+{
+	"uri": "//localhost:1313/6-cleanup/",
+	"title": "Clean up resources",
+	"tags": [],
+	"description": "",
+	"content": "We will take the following steps to delete the resources we created in this exercise.\nDelete EC2 instance Go to EC2 service management console\nClick Instances. Select both Public Linux Instance and Private Windows Instance instances. Click Instance state. Click Terminate instance, then click Terminate to confirm. Go to IAM service management console\nClick Roles. In the search box, enter SSM. Click to select SSM-Role. Click Delete, then enter the role name SSM-Role and click Delete to delete the role. Click Users. Click on user Portfwd. Click Delete, then enter the user name Portfwd and click Delete to delete the user. Delete S3 bucket Access System Manager - Session Manager service management console.\nClick the Preferences tab. Click Edit. Scroll down. In the section S3 logging. Uncheck Enable to disable logging. Scroll down. Click Save. Go to S3 service management console\nClick on the S3 bucket we created for this lab. (Example: lab-fcj-bucket-0001 ) Click Empty. Enter permanently delete, then click Empty to proceed to delete the object in the bucket. Click Exit. After deleting all objects in the bucket, click Delete\nEnter the name of the S3 bucket, then click Delete bucket to proceed with deleting the S3 bucket. Delete VPC Endpoints Go to VPC service management console Click Endpoints. Select the 4 endpoints we created for the lab including SSM, SSMMESSAGES, EC2MESSAGES, S3GW. Click Actions. Click Delete VPC endpoints. In the confirm box, enter delete.\nClick Delete to proceed with deleting endpoints. Click the refresh icon, check that all endpoints have been deleted before proceeding to the next step.\nDelete VPC Go to VPC service management console\nClick Your VPCs. Click on Lab VPC. Click Actions. Click Delete VPC. In the confirm box, enter delete to confirm, click Delete to delete Lab VPC and related resources.\n"
+},
+{
+	"uri": "//localhost:1313/categories/",
+	"title": "Categories",
+	"tags": [],
+	"description": "",
+	"content": ""
+},
+{
+	"uri": "//localhost:1313/tags/",
+	"title": "Tags",
+	"tags": [],
+	"description": "",
+	"content": ""
+}]
