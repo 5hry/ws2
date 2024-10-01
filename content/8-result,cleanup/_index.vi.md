@@ -6,22 +6,20 @@ chapter = false
 pre = "<b>8. </b>"
 +++
 
-After completing the code, we will run the **terraform init** command to download the necessary libraries, followed by **terraform apply** to provision the resources. Since creating the RDS Instance takes about 5 minutes and the RDS Instance Replica takes nearly 15 minutes, you can take a break and check the results once it's done.
+Sau khi đã hoàn tất phần code, ta sẽ thực hiện chạy lệnh **terraform init** để tải về các thư viện cần thiết và chạy **terraform apply** để provision resources. Vì tạo RDS Instance mất khoảng 5p và RDS Instance mất gần 15p nên mọi người có thể nghỉ ngơi rồi chờ nó chạy xong có thể quay lại kiểm tra kết quả.
 
-Results after running the **apply** command:
+Kết quả sau khi chạy lệnh **apply**:
 
-**Module VPC:** Successfully created VPC with 6 subnets, 2 route tables, 1 Internet GW, and 1 NAT GW.
+**Module VPC:** Tạo thành công VPC với 6 subnets, 2 route tables, 1 Internet GW, và 1 NAT GW.
 ![VPC](/images/6.clean/result-vpc.png)
-
-**Module EC2:** Successfully created ASG, running 4 EC2 instances.
+**Module EC2:** Tạo thành công ASG, chạy 4 EC2.
 ![ASG](/images/6.clean/result-asg.png)
 ![EC2](/images/6.clean/result-ec2.png)
 
-**Module LoadBalancer:** Successfully created ALB, Listener, and TargetGroup:
-- ALB is placed in 2 Public Subnets, facing the Internet, and located in the hosted zone created in section 2.
+**Module LoadBalancer:** Tạo thành công ALB, Listener và TargetGroup:
+- ALB nằm ở 2 Public Subnets, facing Internet và nằm trong hosted zone được tạo ở phần 2.
 ![ALB](/images/6.clean/result-alb.png)
-- The Listener forwards traffic from port 443 of the ALB to the EC2 instances in **web_app_TG**.
+- Listener forward traffic đến port 443 của ALB đến các EC2 nằm trong **web_app_TG**.
 ![ALB Listener](/images/6.clean/result-alb-lis.png)
-
-**Module RDS:** Successfully created RDS Primary and Replica instances. Next, the init.sql file from S3 needs to be run on the RDS. I will update this step.
+**Module RDS:** Tạo thành công RDS instance Primary và Replica. Sau đó, cần lấy file init.sql từ S3 để chạy trên RDS. Bước này mình sẽ cập nhật thêm.
 ![RDS](/images/6.clean/result-rds.png)

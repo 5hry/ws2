@@ -6,78 +6,22 @@ chapter = false
 pre = "<b>6. </b>"
 +++
 
-We will take the following steps to delete the resources we created in this exercise.
+After completing the code, we will run the **terraform init** command to download the necessary libraries, followed by **terraform apply** to provision the resources. Since creating the RDS Instance takes about 5 minutes and the RDS Instance Replica takes nearly 15 minutes, you can take a break and check the results once it's done.
 
-#### Delete EC2 instance
+Results after running the **apply** command:
 
-1. Go to [EC2 service management console](https://console.aws.amazon.com/ec2/v2/home)
-   + Click **Instances**.
-   + Select both **Public Linux Instance** and **Private Windows Instance** instances.
-   + Click **Instance state**.
-   + Click **Terminate instance**, then click **Terminate** to confirm.
+**Module VPC:** Successfully created VPC with 6 subnets, 2 route tables, 1 Internet GW, and 1 NAT GW.
+![VPC](/images/6.clean/result-vpc.png)
 
-2. Go to [IAM service management console](https://console.aws.amazon.com/iamv2/home#/home)
-   + Click **Roles**.
-   + In the search box, enter **SSM**.
-   + Click to select **SSM-Role**.
-   + Click **Delete**, then enter the role name **SSM-Role** and click **Delete** to delete the role.
+**Module EC2:** Successfully created ASG, running 4 EC2 instances.
+![ASG](/images/6.clean/result-asg.png)
+![EC2](/images/6.clean/result-ec2.png)
 
-![Clean](/images/6.clean/001-clean.png)
+**Module LoadBalancer:** Successfully created ALB, Listener, and TargetGroup:
+- ALB is placed in 2 Public Subnets, facing the Internet, and located in the hosted zone created in section 2.
+![ALB](/images/6.clean/result-alb.png)
+- The Listener forwards traffic from port 443 of the ALB to the EC2 instances in **web_app_TG**.
+![ALB Listener](/images/6.clean/result-alb-lis.png)
 
-3. Click **Users**.
-   + Click on user **Portfwd**.
-   + Click **Delete**, then enter the user name **Portfwd** and click **Delete** to delete the user.
-
-#### Delete S3 bucket
-
-1. Access [System Manager - Session Manager service management console](https://console.aws.amazon.com/systems-manager/session-manager).
-   + Click the **Preferences** tab.
-   + Click **Edit**.
-   + Scroll down.
-   + In the section **S3 logging**.
-   + Uncheck **Enable** to disable logging.
-   + Scroll down.
-   + Click **Save**.
-
-2. Go to [S3 service management console](https://s3.console.aws.amazon.com/s3/home)
-   + Click on the S3 bucket we created for this lab. (Example: lab-fcj-bucket-0001 )
-   + Click **Empty**.
-   + Enter **permanently delete**, then click **Empty** to proceed to delete the object in the bucket.
-   + Click **Exit**.
-
-3. After deleting all objects in the bucket, click **Delete**
-
-![Clean](/images/6.clean/002-clean.png)
-
-4. Enter the name of the S3 bucket, then click **Delete bucket** to proceed with deleting the S3 bucket.
-
-![Clean](/images/6.clean/003-clean.png)
-
-#### Delete VPC Endpoints
-
-1. Go to [VPC service management console](https://console.aws.amazon.com/vpc/home)
-   + Click **Endpoints**.
-   + Select the 4 endpoints we created for the lab including **SSM**, **SSMMESSAGES**, **EC2MESSAGES**, **S3GW**.
-   + Click **Actions**.
-   + Click **Delete VPC endpoints**.
-
-![Clean](/images/6.clean/004-clean.png)
-
-2. In the confirm box, enter **delete**.
-   + Click **Delete** to proceed with deleting endpoints.
-
-3. Click the refresh icon, check that all endpoints have been deleted before proceeding to the next step.
-
-![Clean](/images/6.clean/005-clean.png)
-
-#### Delete VPC
-
-1. Go to [VPC service management console](https://console.aws.amazon.com/vpc/home)
-   + Click **Your VPCs**.
-   + Click on **Lab VPC**.
-   + Click **Actions**.
-   + Click **Delete VPC**.
-
-2. In the confirm box, enter **delete** to confirm, click **Delete** to delete **Lab VPC** and related resources.
-
-![Clean](/images/6.clean/006-clean.png)
+**Module RDS:** Successfully created RDS Primary and Replica instances. Next, the init.sql file from S3 needs to be run on the RDS. I will update this step.
+![RDS](/images/6.clean/result-rds.png)
