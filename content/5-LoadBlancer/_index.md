@@ -1,91 +1,116 @@
 ---
-title : "Port Forwarding"
+title : "Create Load Balancer"
 date :  "`r Sys.Date()`" 
 weight : 5 
 chapter : false
 pre : " <b> 5. </b> "
 ---
+Next, we will create the Load Balancer module, which includes the ALB, Listener, and Target Group. When the ALB listens on the configured port from the Listener, it will route traffic to the Target Group. First, we will declare the Load Balancer module in the **main.tf** file in the root directory. Some variables are received from other modules, such as **vpc_id, internet_gw, public_subnets** from the **vpc** module, and **certificate_arn** from the **route53** module to configure HTTPS for the ALB.
 
-{{% notice info %}}
-**Port Forwarding** is a useful way to redirect network traffic from one IP address - Port to another IP address - Port. With **Port Forwarding** we can access an EC2 instance located in the private subnet from our workstation.
-{{% /notice %}}
-
-We will configure **Port Forwarding** for the RDP connection between our machine and **Private Windows Instance** located in the private subnet we created for this exercise.
-
-![port-fwd](/images/arc-04.png) 
-
-#### Create IAM user with permission to connect SSM
-
-1. Go to [IAM service management console](https://console.aws.amazon.com/iamv2/home)
-   + Click **Users** , then click **Add users**.
-
-![FWD](/images/5.fwd/001-fwd.png)
-
-2. At the **Add user** page.
-   + In the **User name** field, enter **Portfwd**.
-   + Click on **Access key - Programmatic access**.
-   + Click **Next: Permissions**.
-  
-![FWD](/images/5.fwd/002-fwd.png)
-
-3. Click **Attach existing policies directly**.
-   + In the search box, enter **ssm**.
-   + Click on **AmazonSSMFullAccess**.
-   + Click **Next: Tags**, click **Next: Reviews**.
-   + Click **Create user**.
-
-4. Save **Access key ID** and **Secret access key** information to perform AWS CLI configuration.
-
-#### Install and Configure AWS CLI and Session Manager Plugin
-  
-To perform this hands-on, make sure your workstation has [AWS CLI]() and [Session Manager Plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session) installed -manager-working-with-install-plugin.html)
-
-More hands-on tutorials on installing and configuring the AWS CLI can be found [here](https://000011.awsstudygroup.com/).
-
-{{%notice tip%}}
-With Windows, when extracting the **Session Manager Plugin** installation folder, run the **install.bat** file with Administrator permission to perform the installation.
-{{%/notice%}}
-
-#### Implement Portforwarding
-
-1. Run the command below in **Command Prompt** on your machine to configure **Port Forwarding**.
 
 ```
-   aws ssm start-session --target (your ID windows instance) --document-name AWS-StartPortForwardingSession --parameters portNumber="3389",localPortNumber="9999" --region (your region)
+module "loadbalancer" {
+  source            = "./modules/load_balancer"
+  public_subnets_id = module.vpc.public_subnets
+  vpc_id            = module.vpc.vpc_id
+  internet_gw       = module.vpc.internet_gw.id
+  certificate_arn = module.route53.cert_arn
+}
 ```
-{{%notice tip%}}
+To create a Load Balancer as described above, we need to create:
+- 1 ALB
+- 1 Listener
+- 1 Target Group
+- 1 Security Group for the ALB.
 
-**Windows Private Instance** **Instance ID** information can be found when you view the EC2 Windows Private Instance server details.
+### ALB
+Here, we will create a Load Balancer with type Application, facing the Internet. It will be placed in 2 public subnets created in the **vpc** module, and it will be created after the Internet Gateway is complete, as traffic must pass through the Internet Gateway to reach the ALB. Finally, this ALB will have a security group created below. This Security Group will simply accept traffic on ports 80 (HTTP) and 443 (HTTPS) from the Internet.
 
-{{%/notice%}}
-
-   + Example command:
 
 ```
-C:\Windows\system32>aws ssm start-session --target i-06343d7377486760c --document-name AWS-StartPortForwardingSession --parameters portNumber="3389",localPortNumber="9999" --region ap-southeast-1
+resource "aws_lb" "my_alb" {
+  name               = "my-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb_sg.id]
+  subnets            = var.public_subnets_id
+  depends_on         = [var.internet_gw]
+  tags = {
+    Name = "Load Balancer",
+  }
+}
+
+resource "aws_security_group" "alb_sg" {
+  name        = "alb-security-group"
+  description = "Security group for Application Load Balancer"
+  vpc_id      = var.vpc_id 
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "ALB Security Group"
+  }
+}
+
 ```
 
-{{%notice warning%}}
-
-If your command gives an error like below: \
-SessionManagerPlugin is not found. Please refer to SessionManager Documentation here: http://docs.aws.amazon.com/console/systems-manager/session-manager-plugin-not-found\
-Prove that you have not successfully installed the Session Manager Plugin. You may need to relaunch **Command Prompt** after installing **Session Manager Plugin**.
-
-{{%/notice%}}
-
-2. Connect to the **Private Windows Instance** you created using the **Remote Desktop** tool on your workstation.
-   + In the Computer section: enter **localhost:9999**.
+Next, we will create a Target Group to route traffic to the EC2 instances in this group. The port used to connect to the EC2 instances in this group will be 80 with the HTTP protocol. Since this is already within our VPC, communication can occur over HTTP port 80. This Target Group is linked to the AutoScaling Group created in the EC2 module, meaning that traffic will be routed to the EC2 instances within that ASG.
 
 
-![FWD](/images/5.fwd/003-fwd.png)
+```
+resource "aws_lb_target_group" "web_app_TG" {
+  name     = "web-app-TG"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = var.vpc_id
+}
+```
+Next, for the ALB to route traffic to the Target Group, we need a Listener. We will create a resource **aws_lb_listener** from the ALB just created, using the protocol **HTTPS port 443** and **ssl_policy ELBSecurityPolicy-TLS13-1-2-2021-06** (this information is obtained from [AWS documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html)). The **certificate_arn** is the certificate obtained through ACM when validating records created in Route53, and it will forward traffic received on port 443 to the Target Group created above.
+
+```
+resource "aws_lb_listener" "alb_listener_https" {
+  load_balancer_arn = aws_lb.my_alb.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = var.certificate_arn
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.web_app_TG.arn
+  }
+}
+```
+
+Finally, we create the outputs for other modules to retrieve information from the ALB. Here, we have **target_group_arn** to be used by the **ec2** module mentioned earlier, and also **load_balancer_dns** to be used for creating records in the **route53** module.
 
 
-3. Return to the administration interface of the System Manager - Session Manager service.
-   + Click tab **Session history**.
-   + We will see session logs with Document name **AWS-StartPortForwardingSession**.
 
+```
+output "target_group_arn" {
+  value = aws_lb_target_group.web_app_TG.arn
+}
 
-![FWD](/images/5.fwd/004-fwd.png)
-
-
-Congratulations on completing the lab on how to use Session Manager to connect and store session logs in S3 bucket. Remember to perform resource cleanup to avoid unintended costs.
+output "load_balancer_dns" {
+  value = aws_lb.my_alb.dns_name
+}
+```
+To check the correctness of everything so far, we can move directly to the Route53 module, create the Route53 module first, then run **terraform init** to download the necessary libraries and run **terraform apply** to check for any errors in the code. If there are no resource errors, run **terraform destroy** and continue with the workshop.

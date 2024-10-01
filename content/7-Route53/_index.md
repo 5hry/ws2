@@ -1,91 +1,96 @@
 ---
 title : "Port Forwarding"
 date :  "`r Sys.Date()`" 
-weight : 5 
+weight : 7
 chapter : false
-pre : " <b> 5. </b> "
+pre : " <b> 7. </b> "
 ---
+Next, we will create the Route53 module, which includes records and certificates for the records. First, we will declare the **route53** module in the **main.tf** file in the root directory. Some variables are received from other modules, such as **load_balancer_dns** from the **loadbalancer** module and **rds_endpoint** from the **database** module, to create records for these links for easier access.
 
-{{% notice info %}}
-**Port Forwarding** is a useful way to redirect network traffic from one IP address - Port to another IP address - Port. With **Port Forwarding** we can access an EC2 instance located in the private subnet from our workstation.
-{{% /notice %}}
-
-We will configure **Port Forwarding** for the RDP connection between our machine and **Private Windows Instance** located in the private subnet we created for this exercise.
-
-![port-fwd](/images/arc-04.png) 
-
-#### Create IAM user with permission to connect SSM
-
-1. Go to [IAM service management console](https://console.aws.amazon.com/iamv2/home)
-   + Click **Users** , then click **Add users**.
-
-![FWD](/images/5.fwd/001-fwd.png)
-
-2. At the **Add user** page.
-   + In the **User name** field, enter **Portfwd**.
-   + Click on **Access key - Programmatic access**.
-   + Click **Next: Permissions**.
-  
-![FWD](/images/5.fwd/002-fwd.png)
-
-3. Click **Attach existing policies directly**.
-   + In the search box, enter **ssm**.
-   + Click on **AmazonSSMFullAccess**.
-   + Click **Next: Tags**, click **Next: Reviews**.
-   + Click **Create user**.
-
-4. Save **Access key ID** and **Secret access key** information to perform AWS CLI configuration.
-
-#### Install and Configure AWS CLI and Session Manager Plugin
-  
-To perform this hands-on, make sure your workstation has [AWS CLI]() and [Session Manager Plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session) installed -manager-working-with-install-plugin.html)
-
-More hands-on tutorials on installing and configuring the AWS CLI can be found [here](https://000011.awsstudygroup.com/).
-
-{{%notice tip%}}
-With Windows, when extracting the **Session Manager Plugin** installation folder, run the **install.bat** file with Administrator permission to perform the installation.
-{{%/notice%}}
-
-#### Implement Portforwarding
-
-1. Run the command below in **Command Prompt** on your machine to configure **Port Forwarding**.
 
 ```
-   aws ssm start-session --target (your ID windows instance) --document-name AWS-StartPortForwardingSession --parameters portNumber="3389",localPortNumber="9999" --region (your region)
+module "route53" {
+  source       = "./modules/route53"
+  alb_dns_name = module.loadbalancer.load_balancer_dns
+  endpoint     = module.database.rds_endpoint
+}
 ```
-{{%notice tip%}}
+To create a Load Balancer as described above, we need to create:
+- 2 records (1 for web, 1 for db).
+- 1 ACM Certificate for the 2 records.
+- 2 records for the above certificate.
+- 1 Request Validation for those 2 records.
 
-**Windows Private Instance** **Instance ID** information can be found when you view the EC2 Windows Private Instance server details.
-
-{{%/notice%}}
-
-   + Example command:
+### Records
+First, we will retrieve the domain information of the created hosted zone, then create 2 records for the ALB and RDS endpoint in this hosted zone with 2 subdomains: **workshop2** and **db**.
 
 ```
-C:\Windows\system32>aws ssm start-session --target i-06343d7377486760c --document-name AWS-StartPortForwardingSession --parameters portNumber="3389",localPortNumber="9999" --region ap-southeast-1
+data "aws_route53_zone" "domain" {
+  name = var.domain_name
+}
+
+resource "aws_route53_record" "workshop2" {
+  zone_id = data.aws_route53_zone.domain.id
+  name    = var.fully_domain_name
+  type    = "CNAME"
+  ttl     = 300
+  records = [var.alb_dns_name]
+}
+
+resource "aws_route53_record" "db" {
+  zone_id = data.aws_route53_zone.domain.id
+  name    = var.db
+  type    = "CNAME"
+  ttl     = 300
+  records = [var.endpoint]
+}
 ```
 
-{{%notice warning%}}
-
-If your command gives an error like below: \
-SessionManagerPlugin is not found. Please refer to SessionManager Documentation here: http://docs.aws.amazon.com/console/systems-manager/session-manager-plugin-not-found\
-Prove that you have not successfully installed the Session Manager Plugin. You may need to relaunch **Command Prompt** after installing **Session Manager Plugin**.
-
-{{%/notice%}}
-
-2. Connect to the **Private Windows Instance** you created using the **Remote Desktop** tool on your workstation.
-   + In the Computer section: enter **localhost:9999**.
+Next, I will create an **ACM Certification** for those 2 subdomains using the DNS method, then create 2 additional records in the hosted zone to validate access to these subdomains. Finally, I will create a **certificate_validation** to validate the 2 subdomains.
 
 
-![FWD](/images/5.fwd/003-fwd.png)
+```
+resource "aws_acm_certificate" "acm_certificate" {
+  domain_name       = var.fully_domain_name
+  validation_method = "DNS"
+
+  subject_alternative_names = [
+    var.fully_domain_name, 
+    var.db 
+  ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
 
 
-3. Return to the administration interface of the System Manager - Session Manager service.
-   + Click tab **Session history**.
-   + We will see session logs with Document name **AWS-StartPortForwardingSession**.
+resource "aws_route53_record" "web_app_cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.acm_certificate.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      type   = dvo.resource_record_type
+      value  = dvo.resource_record_value
+    }
+  }
 
+  zone_id = data.aws_route53_zone.domain.zone_id
+  name    = each.value.name
+  type    = each.value.type
+  ttl     = 300
+  records = [each.value.value]
+}
 
-![FWD](/images/5.fwd/004-fwd.png)
+resource "aws_acm_certificate_validation" "cert" {
+  certificate_arn         = aws_acm_certificate.acm_certificate.arn
+  validation_record_fqdns = [for record in aws_route53_record.web_app_cert_validation : record.fqdn]
+}
+```
 
+Additionally, we need to output the **certificate** for the ALB to configure HTTPS for the ALB.
 
-Congratulations on completing the lab on how to use Session Manager to connect and store session logs in S3 bucket. Remember to perform resource cleanup to avoid unintended costs.
+```
+output "cert_arn" {
+  value = aws_acm_certificate.acm_certificate.arn
+}
+```

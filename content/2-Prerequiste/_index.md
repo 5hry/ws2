@@ -6,16 +6,18 @@ chapter : false
 pre : " <b> 2. </b> "
 ---
 
-{{% notice info %}}
-You need to create 1 Linux instance on the public subnet and 1 Window instance on the private subnet to perform this lab.
+{{% notice warning %}}
+You need to have a web application ready; without it, you won't be able to proceed. You can reference and use the web application [here](https://github.com/5hry/e-commerce-web-bluegreen-deploy).
 {{% /notice %}}
 
-To learn how to create EC2 instances and VPCs with public/private subnets, you can refer to the lab:
-  - [About Amazon EC2](https://000004.awsstudygroup.com/en/)
-  - [Works with Amazon VPC](https://000003.awsstudygroup.com/en/)
+Additionally, it's recommended to have a domain name and create a hosted zone in advance to set up CNAME records for your database and application URLs.
 
-In order to use System Manager to manage our window instances in particular and our instances in general on AWS, we need to give permission to our instances to be able to work with System Manager. In this preparation, we will also proceed to create an IAM Role to grant permissions to instances that can work with System Manager.
+![Route 53 Hosted Zone](/images/2.prerequisite/01-route53.png)
 
-### Content
-  - [Prepare VPC and EC2](2.1-createec2/)
-  - [Create IAM Role](2.2-createiamrole/)
+{{% notice info %}}
+You can purchase a domain via **Route 53** or buy one from a third party and add it to **Route 53**.
+{{% /notice %}}
+
+Now, we can follow the steps in the workshop without worrying about missing anything.
+
+In the next sections, we will sequentially create Terraform modules to provision resources within those modules.
